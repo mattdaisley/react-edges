@@ -7,9 +7,31 @@ export default class Home extends React.Component {
 		height: undefined
 	};
 
-	threshold = 50;
+	colorThreshold = 50;
 	modifier = 1;
 	scale = .25;
+	edgeThreshold = 3;
+	noiseThreshold = 1;
+
+	piecePixels = {
+		xColumns: {},
+		yRows: {}
+	}
+	emptyPixels = []
+
+	constructor(props) {
+		super(props) 
+
+		this.state = {
+			pieces: {},
+			showXEdges: true,
+			showYEdges: true
+		}
+
+		this.drawEdges = this.drawEdges.bind(this)
+		this.toggleXEdges = this.toggleXEdges.bind(this) 
+		this.toggleYEdges = this.toggleYEdges.bind(this) 
+	}
 
 	componentDidMount = () => {
 		this.rawcanvas = this.refs.rawcanvas;
@@ -24,11 +46,14 @@ export default class Home extends React.Component {
 			let imageWidth = this.img.width;
 			let imageHeight = this.img.height;
 
-			//this.rawcanvas.height = this.rawcanvas.width * (this.img.height / this.img.width);
+			this.rawcanvas.height = this.rawcanvas.width * (this.img.height / this.img.width);
+			this.canvas.height = this.rawcanvas.height
 
 			this.rawctx.filter = 'grayscale(100%)'
 			this.rawctx.filter = 'invert(100%)'
 			this.rawctx.drawImage(this.img, 0, 0, this.img.width * this.scale, this.img.height * this.scale);
+			// this.rawctx.filter = 'grayscale(0)'
+			// this.rawctx.filter = 'invert(0)'
 
 			this.ctxDimensions.width = this.img.width * this.scale;
 			this.ctxDimensions.height = this.img.height * this.scale;
@@ -39,56 +64,160 @@ export default class Home extends React.Component {
 		}
 	}
 
-	findEdges = (pixelData) => {
+	async findEdges(pixelData) {
+		let pieces = await this.getPieces(pixelData);
+		pieces = await this.getEdges(pieces);
+		this.setState({pieces});
+	}
 
-		for (let y = 0; y < this.ctxDimensions.height; y += this.modifier) {
-			for (let x = 0; x < this.ctxDimensions.width; x += this.modifier) {
-				const { r, g, b } = this.getPixel(pixelData.data, x, y);
-				this.ctx.beginPath();
-				this.ctx.arc(x, y, 0.5, 0, 2 * Math.PI, false);
-				this.ctx.fillStyle = `rgb(${r},${g},${b})`;
-				this.ctx.fill();
-				this.ctx.beginPath();
+
+	drawEdges() {
+		const { pieces, showXEdges, showYEdges } = this.state;
+		const { piecePixels } = pieces;
+		if (!piecePixels) return;
+
+		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+		Object.keys(piecePixels)
+			.filter(i => !!piecePixels[i].xEdge || !!piecePixels[i].yEdge)
+			.map( i => {
+				const piecePixel = piecePixels[i]
+
+				if (showXEdges && !!piecePixel.xEdge) {
+					this.ctx.fillStyle = 'red'
+					this.ctx.beginPath();
+					this.ctx.arc(piecePixel.x, piecePixel.y, 0.5, 0, 2 * Math.PI, false);
+					this.ctx.fill();
+					this.ctx.beginPath();
+				}
+				else if (showYEdges && !!piecePixel.yEdge) {
+					this.ctx.fillStyle = 'green'
+					this.ctx.beginPath();
+					this.ctx.arc(piecePixel.x, piecePixel.y, 0.5, 0, 2 * Math.PI, false);
+					this.ctx.fill();
+					this.ctx.beginPath();
+				}
+				else {
+					// this.ctx.fillStyle = 'blue'
+					// this.ctx.beginPath();
+					// this.ctx.arc(piecePixel.x, piecePixel.y, 0.5, 0, 2 * Math.PI, false);
+					// this.ctx.fill();
+					// this.ctx.beginPath();
+				}
+			}
+		)
+	}
+
+	toggleXEdges() {
+		this.setState({ showXEdges: !this.state.showXEdges })
+	}
+
+	toggleYEdges() {
+		this.setState({ showYEdges: !this.state.showYEdges })
+	}
+
+	getPieces = (pixelData) => {
+		const xStart = 100
+		// const width = 400; 
+		const width = this.ctxDimensions.width;
+		const yStart = 100
+		// const height = 400; 
+		const height = this.ctxDimensions.height;
+		
+		let result = { piecePixels: {}, xColumns: {}, yRows: {}};
+
+		for (let y = yStart; y < height; y += this.modifier) {
+			for (let x = xStart; x < width; x += this.modifier) {
+				let pixel = this.getPixel(pixelData.data, x, y);
+				if (pixel.isPiece) {
+					result.piecePixels[`${x}-${y}`] = {x,y,pixel}
+
+					if (!result.xColumns[x]) result.xColumns[x] = []
+					result.xColumns[x].push({x, y}); 
+
+					if (!result.yRows[y]) result.yRows[y] = []
+					result.yRows[y].push({x, y});
+				} else {
+					this.emptyPixels.push({x,y,pixel})
+				}
 			}
 		}
 
-		//pixelData = this.rawctx.getImageData(0, 0, this.ctxDimensions.width, this.ctxDimensions.height);
+		return result;
+	}
 
-		//const height = pixelData.height;
-		//const width = pixelData.width;
-		////const height = 300;
-		////const width = 300;
+	getEdges = async ({ piecePixels, xColumns, yRows }) => {
+		let xEdges = {}
+		let yEdges = {}
 
-		//let left = undefined;
-		//let top = undefined;
-		//let right = undefined;
-		//let bottom = undefined;
+		// First, just do a rough comparison to find pixels with a neighbor
+		await Object.keys(xColumns).map( key => {
+			const xCoords = xColumns[key]
+			xCoords.map( xCoord => {
+				const top = xCoords.filter(neighbor => neighbor.y > xCoord.y && neighbor.y <= xCoord.y + this.modifier * this.edgeThreshold) //xColumns[`${xCoord.x}-${xCoord.y+1}`]
+				const bottom = xCoords.filter(neighbor => neighbor.y < xCoord.y && neighbor.y >= xCoord.y - this.modifier * this.edgeThreshold)
+				const yCoords = yRows[xCoord.y]
+				const left = yCoords.filter(neighbor => neighbor.x < xCoord.x && neighbor.x >= xCoord.x - this.modifier * this.edgeThreshold)
+				const right = yCoords.filter(neighbor => neighbor.x > xCoord.x && neighbor.x <= xCoord.x + this.modifier * this.edgeThreshold)
 
+				if (top.length > 0 && bottom.length === 0 || top.length === 0 && bottom.length > 0) {
+					if (!xEdges[key]) xEdges[key] = []
+					xEdges[key].push(xCoord)
+				}
+				if (left.length > 0 && right.length === 0 || left.length === 0 && right.length > 0) {
+					if (!yEdges[key]) yEdges[key] = []
+					yEdges[key].push(xCoord)
+				}
+			})
+		})
 
-		//for (let y = 0; y < height; y += this.modifier) {
-		//	for (let x = 0; x < width; x += this.modifier) {
-		//		const index = (x + y * this.ctxDimensions.width) * 4;
-		//		const pixel = { r: pixelData.data[index], g: pixelData.data[index + 1], b: pixelData.data[index + 2] }
+		// Then remove the noise by doing another filter
+		// await this.removeXNoise(xEdges, yEdges)
+		// await this.removeYNoise(xEdges, yEdges)
 
-		//		left = { r: pixelData.data[index - 3], g: pixelData.data[index - 2], b: pixelData.data[index - 1] } //pixelData.data.data[index - 4];
-		//		right = { r: pixelData.data[index + 3], g: pixelData.data[index + 4], b: pixelData.data[index + 5] } // pixelData.data.data[index + 2];
-		//		top = { r: pixelData.data[index - (this.ctxDimensions.width * 4)], g: pixelData.data[index + 1 - (this.ctxDimensions.width * 4)], b: pixelData.data[index + 2 - (this.ctxDimensions.width * 4)] } // pixelData.data.data[index - (this.ctxDimensions.width * 4)];
-		//		bottom = { r: pixelData.data[index + (this.ctxDimensions.width * 4)], g: pixelData.data[index + 1 + (this.ctxDimensions.width * 4)], b: pixelData.data[index + 2 + (this.ctxDimensions.width * 4)] } // pixelData.data.data[index + (this.ctxDimensions.width * 4)];
+		Object.keys(xEdges).map( key => {
+			xEdges[key].map( edge => {
+				piecePixels[`${edge.x}-${edge.y}`].xEdge = true
+			})
+		})
 
-		//		if (this.compare(pixel, left)) {
-		//			this.plotPoint(x, y);
-		//		}
-		//		else if (this.compare(pixel, right)) {
-		//			this.plotPoint(x, y);
-		//		}
-		//		else if (this.compare(pixel, top)) {
-		//			this.plotPoint(x, y);
-		//		}
-		//		else if (this.compare(pixel, bottom)) {
-		//			this.plotPoint(x, y);
-		//		}
-		//	}
-		//}
+		// console.log(piecePixels);
+		Object.keys(yEdges).map( key => {
+			yEdges[key].map( edge => {
+				piecePixels[`${edge.x}-${edge.y}`].yEdge = true
+			})
+		})
+		return { piecePixels, xColumns, yRows, xEdges, yEdges }; 
+	}
+
+	removeXNoise = async (xEdges, yEdges) => {
+		Object.keys(xEdges).map( key => {
+			const coords = xEdges[key]
+			coords.map( coord => {
+				// const top = coords.filter(neighbor => neighbor.y > coord.y && neighbor.y <= coord.y + this.modifier * this.noiseThreshold) //xColumns[`${coordx}-${coord.y+1}`]
+				// const bottom = coords.filter(neighbor => neighbor.y < coord.y && neighbor.y >= coord.y - this.modifier * this.noiseThreshold)
+				const yCoords = yEdges[coord.y]
+				if (!yCoords) return coord
+				const left = yCoords.filter(neighbor => neighbor.x < coord.x && neighbor.x >= coord.x - this.modifier * this.noiseThreshold)
+				const right = yCoords.filter(neighbor => neighbor.x > coord.x && neighbor.x <= coord.x + this.modifier * this.noiseThreshold)
+				return { ...coord, xEdge: (left.length > this.noiseThreshold && right.length === this.noiseThreshold || left.length === this.noiseThreshold && right.length > this.noiseThreshold) }
+			})
+		})
+	}
+
+	removeYNoise = async (xEdges, yEdges) => {
+		Object.keys(yEdges).map( key => {
+			const coords = yEdges[key]
+			coords.map( coord => {
+				const xCoords = xEdges[coord.x]
+				if (!xCoords) return coord
+				const top = xCoords.filter(neighbor => neighbor.y > coord.y && neighbor.y <= coord.y + this.modifier * this.noiseThreshold) //xColumns[`${coordx}-${coord.y+1}`]
+				const bottom = xCoords.filter(neighbor => neighbor.y < coord.y && neighbor.y >= coord.y - this.modifier * this.noiseThreshold)
+				// const left = coords.filter(neighbor => neighbor.x < coord.x && neighbor.x >= coord.x - this.modifier * this.noiseThreshold)
+				// const right = coords.filter(neighbor => neighbor.x > coord.x && neighbor.x <= coord.x + this.modifier * this.noiseThreshold)
+				return { ...coord, yEdge: (top.length > this.noiseThreshold && bottom.length === this.noiseThreshold || top.length === this.noiseThreshold && bottom.length > this.noiseThreshold) }
+			})
+		})
 	}
 
 	getPixel = (data, x, y) => {
@@ -99,42 +228,46 @@ export default class Home extends React.Component {
 
 		const min = 100;
 
-		if (r < min && g < min && b < min) return { r: 0, g: 0, b: 0 }
-		return { r: 255, g: 255, b: 255 }
+		if (r < min && g < min && b < min) {
+			return { r, g, b, isPiece: true}
+		};
+		return { r, g, b, isPiece: false}
 
 		//const pixel = { r, g, b };
 		//return { r: data[index], g: data[index + 1], b: data[index + 2] }
 	}
 
 	compare = (pixel, neighbor) => {
-		if (pixel.r > neighbor.r + this.threshold || pixel.g > neighbor.g + this.threshold || pixel.b > neighbor.b + this.threshold) {
+		if (pixel.r > neighbor.r + this.colorThreshold || pixel.g > neighbor.g + this.colorThreshold || pixel.b > neighbor.b + this.colorThreshold) {
 			return true;
 		}
-		else if (pixel.r < neighbor.r - this.threshold || pixel.g < neighbor.g - this.threshold || pixel.b < neighbor.b - this.threshold) {
+		else if (pixel.r < neighbor.r - this.colorThreshold || pixel.g < neighbor.g - this.colorThreshold || pixel.b < neighbor.b - this.colorThreshold) {
 			return true;
 		}
 	}
 
-	plotPoint = (x, y) => {
-		this.ctx.beginPath();
-		this.ctx.arc(x, y, 0.5, 0, 2 * Math.PI, false);
-		this.ctx.fillStyle = 'green';
-		this.ctx.fill();
-		this.ctx.beginPath();
+	render() {
+		const { pieces, showXEdges, showYEdges } = this.state;
 
-		this.rawctx.beginPath();
-		this.rawctx.arc(x, y, 0.5, 0, 2 * Math.PI, false);
-		this.rawctx.fillStyle = 'green';
-		this.rawctx.fill();
-		this.rawctx.beginPath();
-	}
-
-	render = () => {
+		console.log(pieces);
+		if (!!pieces) {
+			this.drawEdges()
+		}
 		return (
-			<div>
-				<canvas ref="rawcanvas" width={800} height={800} className=""/>
-				<canvas ref="canvas" width={800} height={800} />
-				<img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" />
+			<div style={{display: 'flex'}}>
+				<div>
+					<canvas ref="rawcanvas" width={800} height={800} className="hidden"/>
+					<canvas ref="canvas" width={800} height={800} />
+					<img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" />
+				</div>
+				<div>
+					<div>
+						<button onClick={this.toggleXEdges}>{showXEdges ? 'Hide' : 'Show'} X Edges</button> {!!pieces && !!pieces.xEdges && Object.keys(pieces.xEdges).length > 0 && Object.keys(pieces.xEdges).length}
+					</div>
+					<div>
+						<button onClick={this.toggleYEdges}>{showYEdges ? 'Hide' : 'Show'} Y Edges</button> {!!pieces && !!pieces.yEdges && Object.keys(pieces.yEdges).length > 0 && Object.keys(pieces.yEdges).length}
+					</div>
+				</div>
 			</div>
 		);
 	}
