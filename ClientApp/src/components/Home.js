@@ -117,12 +117,14 @@ export default class Home extends React.Component {
 	}
 
 	getPieces = (pixelData) => {
-		const xStart = 100
-		// const width = 400; 
+		const xStart = 0
 		const width = this.ctxDimensions.width;
-		const yStart = 100
-		// const height = 400; 
+		// const xStart = 100
+		// const width = 400; 
+		const yStart = 0
 		const height = this.ctxDimensions.height;
+		// const yStart = 100
+		// const height = 400; 
 		
 		let result = { piecePixels: {}, xColumns: {}, yRows: {}};
 
@@ -256,9 +258,10 @@ export default class Home extends React.Component {
 		return (
 			<div style={{display: 'flex'}}>
 				<div>
-					<canvas ref="rawcanvas" width={800} height={800} className="hidden"/>
+					<canvas ref="rawcanvas" width={800} height={800} className=""/>
 					<canvas ref="canvas" width={800} height={800} />
-					<img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" />
+					{/* <img alt="puzzle piece" ref="image" src="./puzzlePieces.jpg" className="" /> */}
+					<img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="" />
 				</div>
 				<div>
 					<div>
