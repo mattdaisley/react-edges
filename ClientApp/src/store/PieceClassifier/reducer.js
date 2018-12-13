@@ -7,6 +7,8 @@ const initialState = {
 	},
 	colorThreshold: 50,
   modifier: 1,
+  apperature: 2,
+  cornerThreshold: .45,
   pieceSetSearchModifier: 10,
 	scale: .25,
 	edgeThreshold: 3,
@@ -69,31 +71,52 @@ export const selectors = {
   },
 
   getEdges: async (state, pieces) => {
-    const { pieceSetSearchModifier } = state;
-    const { pieceSet, piecePixels } = pieces;
+    const { modifier, apperature, cornerThreshold } = state;
+    const { pieceSet, } = pieces;
 
-    let edgesResult = {};
+    let result = {};
 
-    // console.log(pieceSet, piecePixels);
-
-    await Object.keys(pieceSet).forEach( pieceKey => {
+    await Object.keys(pieceSet).forEach( async pieceKey => {
       const piece = pieceSet[pieceKey]
 
-      if (Object.keys(piece.pixels).length < 1) return
+      if (Object.keys(piece.pixels).length < 1) 
+        return
 
-      // let firstPixelKey = Object.keys(piece.pixels)[0];
-      // let firstPixel = piece.pixels[firstPixelKey]
+      result[pieceKey] = { corners: {}, edges: [] }
 
-      Object.keys(piece.pixels).forEach( pixelKey => {
+      await Object.keys(piece.pixels).forEach( pixelKey => {
         const pixel = piece.pixels[pixelKey]
-        const isEdge = checkCorner(pixel, piece.pixels, state.modifier);
+        const isEdge = checkCorner(pixel, piece.pixels, modifier, apperature, cornerThreshold);
         if (isEdge) {
-          edgesResult[`${pixel.x}-${pixel.y}`] = pixel;
+          result[pieceKey].corners[`${pixel.x}-${pixel.y}`] = pixel;
         }
       })
+
+      let sourceEdgeResultKeys = [...Object.keys(result[pieceKey].corners)]
+      while (sourceEdgeResultKeys.length > 1) {
+        const key = sourceEdgeResultKeys[0]
+        for (let i = 1; i < sourceEdgeResultKeys.length; i++) {
+          let nextKey = sourceEdgeResultKeys[i]
+
+          const p1 = result[pieceKey].corners[key]
+          const p2 = result[pieceKey].corners[nextKey]
+
+          var a = p1.x - p2.x;
+          var b = p1.y - p2.y;
+
+          var c = Math.sqrt( a*a + b*b );
+
+          let angleDeg = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+
+          if (c > 50) {
+            result[pieceKey].edges.push({ length: c, p1, p2 })
+          }
+        }
+        sourceEdgeResultKeys.shift()
+      }
     })
 
-    return edgesResult;
+    return result;
   },
 
 	getEdgesOld: async (state, pieces) => {
@@ -142,22 +165,18 @@ export const selectors = {
 	}
 }
 
-const checkCorner = (pixel, pixels, modifier) => {
+const checkCorner = (pixel, pixels, modifier, apperature, cornerThreshold) => {
   const { x, y } = pixel;
-  //console.log(pixel)
 
   let totalAround = 0;
 
-  totalAround += pixels[`${x+modifier}-${y}`] ? 1 : 0
-  totalAround += pixels[`${x-modifier}-${y}`] ? 1 : 0
-  totalAround += pixels[`${x}-${y+modifier}`] ? 1 : 0
-  totalAround += pixels[`${x}-${y-modifier}`] ? 1 : 0
-  totalAround += pixels[`${x+modifier}-${y+modifier}`] ? 1 : 0
-  totalAround += pixels[`${x+modifier}-${y-modifier}`] ? 1 : 0
-  totalAround += pixels[`${x-modifier}-${y+modifier}`] ? 1 : 0
-  totalAround += pixels[`${x-modifier}-${y-modifier}`] ? 1 : 0
+  for (let i = x-apperature; i <= x+apperature; i += modifier) {
+    for (let j = y-apperature; j <= y+apperature; j += modifier) {
+      totalAround += pixels[`${i}-${j}`] ? 1 : 0
+    }
+  }
 
-  if (totalAround <= 4) {
+  if (totalAround <= Math.pow(apperature*2 + 1, 2) * cornerThreshold && totalAround > 3) {
     return true
   }
 }
@@ -201,7 +220,6 @@ const floodFill = (data, key, startX, startY, width, modifier, pieceSet, piecePi
     queue.shift()
   }
 
-  if (!piecePixels[key]) console.log(key, pieceSet)
   return { pieceSet, piecePixels, newPieceFound: true};
 }
 

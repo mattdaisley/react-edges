@@ -108,15 +108,28 @@ class Home extends React.Component {
 		const { edges } = this.state;
 		if (!edges) return;
 
-		Object.keys(edges).forEach( edgeKey => {
-			const edge = edges[edgeKey];
-			//this.drawPiece(piece);
-			console.log(edge)
-			this.ctx.fillStyle="green";
-			this.ctx.beginPath();
-			this.ctx.arc(edge.x, edge.y, 2, 0, 2 * Math.PI, false);
-			this.ctx.fill();
-			this.ctx.beginPath();
+		Object.keys(edges).forEach( pieceKey => {
+			const piece = edges[pieceKey]
+			Object.keys(piece.corners).forEach( edgeKey => {
+				const edge = piece.corners[edgeKey];
+				//this.drawPiece(piece);
+				// console.log(edge)
+				this.ctx.beginPath();
+				this.ctx.fillStyle="lime";
+				this.ctx.arc(edge.x, edge.y, 5, 0, 2 * Math.PI, false);
+				this.ctx.fill();
+			})
+
+			Object.keys(piece.edges).forEach( edgeKey => {
+				const edge = piece.edges[edgeKey];
+				//this.drawPiece(piece);
+				// console.log(edge)
+				this.ctx.beginPath();
+				this.ctx.strokeStyle="red";
+				this.ctx.moveTo(edge.p1.x, edge.p1.y);
+				this.ctx.lineTo(edge.p2.x, edge.p2.y);
+				this.ctx.stroke();
+			})
 		})
 	}
 
@@ -218,9 +231,13 @@ class Home extends React.Component {
 					</div>
 					<div>
 						{
-							!!edges && Object.keys(edges).map( edgeKey => {
-								const edge = edges[edgeKey];
-								return (<div key={edgeKey}>{edgeKey} - X: {edge.x}, Y: {edge.y}</div>)
+							!!edges && Object.keys(edges).map( pieceKey => {
+								const piece = edges[pieceKey]
+								console.log(piece)
+								return Object.keys(piece.corners).map( cornerKey => {
+									const edge = piece.corners[cornerKey];
+									return (<div key={cornerKey}>{cornerKey} - X: {edge.x}, Y: {edge.y}</div>)
+								})
 							})
 						}
 					</div>
