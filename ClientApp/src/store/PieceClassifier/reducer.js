@@ -82,7 +82,7 @@ export const selectors = {
       if (Object.keys(piece.pixels).length < 1) 
         return
 
-      result[pieceKey] = { corners: {}, edges: [] }
+      result[pieceKey] = { corners: {}, edges: [], angles: [] }
 
       await Object.keys(piece.pixels).forEach( pixelKey => {
         const pixel = piece.pixels[pixelKey]
@@ -92,28 +92,29 @@ export const selectors = {
         }
       })
 
-      let sourceEdgeResultKeys = [...Object.keys(result[pieceKey].corners)]
-      while (sourceEdgeResultKeys.length > 1) {
-        const key = sourceEdgeResultKeys[0]
-        for (let i = 1; i < sourceEdgeResultKeys.length; i++) {
-          let nextKey = sourceEdgeResultKeys[i]
+      let sourceCorners = [...Object.keys(result[pieceKey].corners)]
+      while (sourceCorners.length > 1) {
+        const p1Key = sourceCorners[0]
+        for (let i = 1; i < sourceCorners.length; i++) {
+          const p2Key = sourceCorners[i]
 
-          const p1 = result[pieceKey].corners[key]
-          const p2 = result[pieceKey].corners[nextKey]
+          const p1 = result[pieceKey].corners[p1Key]
+          const p2 = result[pieceKey].corners[p2Key]
 
-          var a = p1.x - p2.x;
-          var b = p1.y - p2.y;
+          var p1p2Distance = Math.sqrt( Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
 
-          var c = Math.sqrt( a*a + b*b );
+          //let twoPointAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
 
-          let angleDeg = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-
-          if (c > 50) {
-            result[pieceKey].edges.push({ length: c, p1, p2 })
+          if (p1p2Distance > 50) {
+            // console.log(`p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${p3.y} -- p1-p2 distance: ${p1p2Distance}`)
+            result[pieceKey].edges.push({ length: p1p2Distance, p1, p2 })
           }
         }
-        sourceEdgeResultKeys.shift()
+        sourceCorners.shift()
       }
+
+      const angles = await checkFor90(result[pieceKey].corners);
+      result[pieceKey].angles = angles
     })
 
     return result;
@@ -181,6 +182,55 @@ const checkCorner = (pixel, pixels, modifier, apperature, cornerThreshold) => {
   }
 }
 
+const checkFor90 = async (sourceCorners) => {
+  let corners = [...Object.keys(sourceCorners)]
+  let result = [];
+  // console.log(corners)
+
+  corners.forEach( p1Key => {
+    //const p1Key = corners[0]
+    const p1 = sourceCorners[p1Key]
+    let corners2 = corners.slice(1)
+    // console.log(corners2)
+
+    corners2.forEach( p2Key => {
+      const p2 = sourceCorners[p2Key]
+
+      var p1p2Distance = Math.sqrt( Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+      if (p1p2Distance > 50) {
+
+        for (let i = 1; i < corners2.length; i++) {
+          const p3Key = corners2[i]
+          if (p2Key === p3Key) continue; 
+
+          const p3 = sourceCorners[p3Key]
+          var p1p3Distance = Math.sqrt( Math.pow(p1.x - p3.x, 2) + Math.pow(p1.y - p3.y, 2));
+    
+          //let twoPointAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+          let threePointAngle = findAngle(p2,p1,p3) * 180 / Math.PI
+          console.log(`p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${p3.y} -- p1-p2 distance: ${p1p2Distance} -- p1-p3 distance: ${p1p3Distance} -- p1,p2,p3 angle - ${threePointAngle}`)
+    
+          if (p1p3Distance > 100 && threePointAngle > 80 && threePointAngle < 100) {
+            //console.log(`p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${p3.y} -- p1-p2 distance: ${p1p2Distance} -- p1-p3 distance: ${p1p3Distance} -- p1,p2,p3 angle - ${threePointAngle}`)
+            result.push({ p1p2Distance, p1p3Distance, p1, p2, p3, angle: threePointAngle })
+          }
+        }
+
+      }
+    })
+    //corners.shift()
+  })
+
+  return result;
+}
+
+const findAngle = (p1,p2,p3) => {
+  var p1p2 = Math.sqrt(Math.pow(p2.x-p1.x,2)+ Math.pow(p2.y-p1.y,2));    
+  var p2p3 = Math.sqrt(Math.pow(p2.x-p3.x,2)+ Math.pow(p2.y-p3.y,2)); 
+  var p1p3 = Math.sqrt(Math.pow(p3.x-p1.x,2)+ Math.pow(p3.y-p1.y,2));
+  return Math.acos((p2p3*p2p3+p1p2*p1p2-p1p3*p1p3)/(2*p2p3*p1p2));
+}
+
 const floodFill = (data, key, startX, startY, width, modifier, pieceSet, piecePixels) => {
   // If piecePixels already has a value for this pixel, just return the set
   if (!!piecePixels[key]) {
@@ -234,7 +284,7 @@ const getPixel = (data, x, y, width) => {
   const min = 100;
 
   if (r < min && g < min && b < min) {
-    return { isPiece: true, r, g, b, x, y}
+    return { x, y, isPiece: true, r, g, b }
   };
   return { isPiece: false, r, g, b, x, y}
 }

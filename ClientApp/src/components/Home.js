@@ -76,6 +76,7 @@ class Home extends React.Component {
 	async findEdges(pixelData) {
 		let pieces = await selectors.getPieces(this.props, pixelData, this.ctxDimensions);
 		let edges = await selectors.getEdges(this.props, pieces);
+		console.log(edges)
 		this.setState({pieces, edges});
 	}
 
@@ -120,8 +121,8 @@ class Home extends React.Component {
 				this.ctx.fill();
 			})
 
-			Object.keys(piece.edges).forEach( edgeKey => {
-				const edge = piece.edges[edgeKey];
+			Object.keys(piece.angles).forEach( angleKey => {
+				const edge = piece.angles[angleKey];
 				//this.drawPiece(piece);
 				// console.log(edge)
 				this.ctx.beginPath();
@@ -233,7 +234,7 @@ class Home extends React.Component {
 						{
 							!!edges && Object.keys(edges).map( pieceKey => {
 								const piece = edges[pieceKey]
-								console.log(piece)
+								// console.log(piece)
 								return Object.keys(piece.corners).map( cornerKey => {
 									const edge = piece.corners[cornerKey];
 									return (<div key={cornerKey}>{cornerKey} - X: {edge.x}, Y: {edge.y}</div>)
