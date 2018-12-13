@@ -27,13 +27,19 @@ class Home extends React.Component {
 
 		this.state = {
 			pieces: {},
+			edges: {},
 			showXEdges: true,
-			showYEdges: true
+			showYEdges: true,
+			selectedImageSource: 'puzzlePieces3.jpg',
+			imageSources: [ 'puzzlePieces.jpg', 'puzzlePieces2.jpg', 'puzzlePieces3.jpg' ]
 		}
 
+		this.draw = this.draw.bind(this)
+		this.drawPieces = this.drawPieces.bind(this)
 		this.drawEdges = this.drawEdges.bind(this)
 		this.toggleXEdges = this.toggleXEdges.bind(this) 
 		this.toggleYEdges = this.toggleYEdges.bind(this) 
+		this.updateImage = this.updateImage.bind(this)
 	}
 
 	componentDidMount = () => {
@@ -49,17 +55,17 @@ class Home extends React.Component {
 			let imageWidth = this.img.width;
 			let imageHeight = this.img.height;
 
-			this.rawcanvas.height = this.rawcanvas.width * (this.img.height / this.img.width);
+			this.rawcanvas.height = this.rawcanvas.width * (imageHeight / imageWidth);
 			this.canvas.height = this.rawcanvas.height
 
 			this.rawctx.filter = 'grayscale(100%)'
 			this.rawctx.filter = 'invert(100%)'
-			this.rawctx.drawImage(this.img, 0, 0, this.img.width * this.scale, this.img.height * this.scale);
+			this.rawctx.drawImage(this.img, 0, 0, imageWidth * this.scale, imageHeight * this.scale);
 			// this.rawctx.filter = 'grayscale(0)'
 			// this.rawctx.filter = 'invert(0)'
 
-			this.ctxDimensions.width = this.img.width * this.scale;
-			this.ctxDimensions.height = this.img.height * this.scale;
+			this.ctxDimensions.width = imageWidth * this.scale;
+			this.ctxDimensions.height = imageHeight * this.scale;
 
 			const pixelData = this.rawctx.getImageData(0, 0, this.ctxDimensions.width, this.ctxDimensions.height);
 
@@ -69,20 +75,49 @@ class Home extends React.Component {
 
 	async findEdges(pixelData) {
 		let pieces = await selectors.getPieces(this.props, pixelData, this.ctxDimensions);
-		// pieces = await selectors.getEdges(this.props, pieces);
-		console.log(pieces, pieces.piecePixels[`0-0`]);
-		this.setState({pieces});
+		let edges = await selectors.getEdges(this.props, pieces);
+		this.setState({pieces, edges});
 	}
 
 
-	async drawEdges() {
-		const { piecePixels, pieceSet } = this.state.pieces;
-		if (!piecePixels || !pieceSet) return;
+	async draw() {
+		if (!this.ctx || !this.canvas)
+			return
 
 		this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		
-		await this.drawPieceSets();
-		// await this.drawPiecePixels();
+		await this.drawPieces();
+		await this.drawEdges();
+	}
+	async drawPieces() {
+		const { pieceSet } = this.state.pieces;
+		if (!pieceSet) 
+			return
+
+		Object.keys(pieceSet).forEach( pieceKey => {
+			const piece = pieceSet[pieceKey];
+			this.drawPiece(piece);
+
+			this.ctx.strokeStyle="red";
+			this.ctx.rect(piece.minX, piece.minY, piece.maxX - piece.minX, piece.maxY - piece.minY);
+			this.ctx.stroke();
+		})
+	}
+
+	async drawEdges() {
+		const { edges } = this.state;
+		if (!edges) return;
+
+		Object.keys(edges).forEach( edgeKey => {
+			const edge = edges[edgeKey];
+			//this.drawPiece(piece);
+			console.log(edge)
+			this.ctx.fillStyle="green";
+			this.ctx.beginPath();
+			this.ctx.arc(edge.x, edge.y, 2, 0, 2 * Math.PI, false);
+			this.ctx.fill();
+			this.ctx.beginPath();
+		})
 	}
 
 	drawPiecePixels() {
@@ -90,9 +125,8 @@ class Home extends React.Component {
 		const { piecePixels } = pieces;
 
 		const edgePixels = Object.keys(piecePixels).filter(i => !!piecePixels[i].xEdge || !!piecePixels[i].yEdge);
-		console.log(edgePixels)
 		
-		edgePixels.map( i => {
+		edgePixels.forEach( i => {
 				const piecePixel = piecePixels[i]
 
 				if (showXEdges && !!piecePixel.xEdge) {
@@ -120,28 +154,17 @@ class Home extends React.Component {
 		)
 	}
 
-	drawPieceSets() {
-		const { pieces } = this.state;
-		const { piecePixels, pieceSet } = pieces;
-
-		Object.keys(pieceSet).map( pieceKey => {
-			const piece = pieceSet[pieceKey];
-			const pixels = Object.keys(piece.pixels)
+	drawPiece(piece) {
+		const pixels = Object.keys(piece.pixels)
 	
-			this.ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16)
-			pixels.map( i => {
-					const piecePixel = piece.pixels[i]
-	
-					this.ctx.beginPath();
-					this.ctx.arc(piecePixel.x, piecePixel.y, 0.5, 0, 2 * Math.PI, false);
-					this.ctx.fill();
-					this.ctx.beginPath();
-				}
-			)
+		this.ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16)
+		pixels.forEach( i => {
+			const piecePixel = piece.pixels[i]
 
-			this.ctx.strokeStyle="red";
-			this.ctx.rect(piece.minX, piece.minY, piece.maxX - piece.minX, piece.maxY - piece.minY);
-			this.ctx.stroke();
+			this.ctx.beginPath();
+			this.ctx.arc(piecePixel.x, piecePixel.y, 0.5, 0, 2 * Math.PI, false);
+			this.ctx.fill();
+			this.ctx.beginPath();
 		})
 	}
 
@@ -153,51 +176,16 @@ class Home extends React.Component {
 		this.setState({ showYEdges: !this.state.showYEdges })
 	}
 
-	removeXNoise = async (xEdges, yEdges) => {
-		Object.keys(xEdges).map( key => {
-			const coords = xEdges[key]
-			coords.map( coord => {
-				// const top = coords.filter(neighbor => neighbor.y > coord.y && neighbor.y <= coord.y + this.modifier * this.noiseThreshold) //xColumns[`${coordx}-${coord.y+1}`]
-				// const bottom = coords.filter(neighbor => neighbor.y < coord.y && neighbor.y >= coord.y - this.modifier * this.noiseThreshold)
-				const yCoords = yEdges[coord.y]
-				if (!yCoords) return coord
-				const left = yCoords.filter(neighbor => neighbor.x < coord.x && neighbor.x >= coord.x - this.modifier * this.noiseThreshold)
-				const right = yCoords.filter(neighbor => neighbor.x > coord.x && neighbor.x <= coord.x + this.modifier * this.noiseThreshold)
-				return { ...coord, xEdge: (left.length > this.noiseThreshold && right.length === this.noiseThreshold || left.length === this.noiseThreshold && right.length > this.noiseThreshold) }
-			})
-		})
-	}
-
-	removeYNoise = async (xEdges, yEdges) => {
-		Object.keys(yEdges).map( key => {
-			const coords = yEdges[key]
-			coords.map( coord => {
-				const xCoords = xEdges[coord.x]
-				if (!xCoords) return coord
-				const top = xCoords.filter(neighbor => neighbor.y > coord.y && neighbor.y <= coord.y + this.modifier * this.noiseThreshold) //xColumns[`${coordx}-${coord.y+1}`]
-				const bottom = xCoords.filter(neighbor => neighbor.y < coord.y && neighbor.y >= coord.y - this.modifier * this.noiseThreshold)
-				// const left = coords.filter(neighbor => neighbor.x < coord.x && neighbor.x >= coord.x - this.modifier * this.noiseThreshold)
-				// const right = coords.filter(neighbor => neighbor.x > coord.x && neighbor.x <= coord.x + this.modifier * this.noiseThreshold)
-				return { ...coord, yEdge: (top.length > this.noiseThreshold && bottom.length === this.noiseThreshold || top.length === this.noiseThreshold && bottom.length > this.noiseThreshold) }
-			})
-		})
-	}
-
-	compare = (pixel, neighbor) => {
-		if (pixel.r > neighbor.r + this.colorThreshold || pixel.g > neighbor.g + this.colorThreshold || pixel.b > neighbor.b + this.colorThreshold) {
-			return true;
-		}
-		else if (pixel.r < neighbor.r - this.colorThreshold || pixel.g < neighbor.g - this.colorThreshold || pixel.b < neighbor.b - this.colorThreshold) {
-			return true;
-		}
+	updateImage(e) {
+		this.setState({ selectedImageSource: e.target.value })
 	}
 
 	render() {
-		const { pieces, showXEdges, showYEdges } = this.state;
+		const { pieces, edges, showXEdges, showYEdges, imageSources, selectedImageSource } = this.state;
 		const { pieceSet } = pieces
 
-		if (!!pieces) {
-			this.drawEdges()
+		if (!!pieces && !!edges) {
+			this.draw()
 		}
 		return (
 			<div style={{display: 'flex'}}>
@@ -205,9 +193,15 @@ class Home extends React.Component {
 					<canvas ref="rawcanvas" width={800} height={800} className="hidden"/>
 					<canvas ref="canvas" width={800} height={800} />
 					{/* <img alt="puzzle piece" ref="image" src="./puzzlePieces.jpg" className="" /> */}
-					<img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" />
+					{/* <img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" /> */}
+					<img alt="puzzle piece" ref="image" src={`./${selectedImageSource}`} className="hidden" />
 				</div>
 				<div>
+					<div>
+						<select value={selectedImageSource} onChange={this.updateImage}>
+							{ imageSources.map(imageSource => <option key={imageSource} value={imageSource}>{imageSource}</option>) }
+						</select>
+					</div>
 					<div>
 						<button onClick={this.toggleXEdges}>{showXEdges ? 'Hide' : 'Show'} X Edges</button> {!!pieces && !!pieces.xEdges && Object.keys(pieces.xEdges).length > 0 && Object.keys(pieces.xEdges).length}
 					</div>
@@ -219,6 +213,14 @@ class Home extends React.Component {
 							!!pieceSet && Object.keys(pieceSet).map( pieceKey => {
 								const piece = pieceSet[pieceKey];
 								return (<div key={pieceKey}>{pieceKey} - X Min: {piece.minX}, X Max: {piece.maxX}, Y Min: {piece.minY}, Y Max: {piece.maxY}, Pixel Count: {Object.keys(piece.pixels).length}</div>)
+							})
+						}
+					</div>
+					<div>
+						{
+							!!edges && Object.keys(edges).map( edgeKey => {
+								const edge = edges[edgeKey];
+								return (<div key={edgeKey}>{edgeKey} - X: {edge.x}, Y: {edge.y}</div>)
 							})
 						}
 					</div>

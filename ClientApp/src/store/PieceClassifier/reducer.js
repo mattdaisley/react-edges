@@ -37,17 +37,19 @@ export const selectors = {
     let pieceIndex = 0;
     result.pieceSet[pieceIndex] = { pixels: {}, minX: undefined, minY: undefined, maxX: undefined, maxY: undefined}
 
+    // loop through the pixel data to find any pieces
 		for (let y = yStart; y < height; y += state.pieceSetSearchModifier) {
 			for (let x = xStart; x < width; x += state.pieceSetSearchModifier) {
 
-        const key = `${x}-${y}`;
-        const fillResult = floodFill(pixelData.data, key, x, y, ctxDimensions.width, state.modifier, result.pieceSet[pieceIndex], result.piecePixels)
-
-        if (fillResult.pieceFound && Object.keys(fillResult.pieceSet.pixels).length > 20) {
-          result.pieceSet[pieceIndex] = fillResult.pieceSet;
-
-          pieceIndex++
+        if (!result.pieceSet[pieceIndex])
           result.pieceSet[pieceIndex] = { pixels: {}, minX: undefined, minY: undefined, maxX: undefined, maxY: undefined}
+
+        const key = `${x}-${y}`;
+        const fillResult = await floodFill(pixelData.data, key, x, y, ctxDimensions.width, state.modifier, result.pieceSet[pieceIndex], result.piecePixels)
+
+        if (fillResult.newPieceFound && Object.keys(fillResult.pieceSet.pixels).length > 20) {
+          result.pieceSet[pieceIndex] = fillResult.pieceSet;
+          pieceIndex++
         }
         result.piecePixels = fillResult.piecePixels;
 
@@ -66,26 +68,54 @@ export const selectors = {
 		return result;
   },
 
-	getEdges: async (state, pieces) => {
+  getEdges: async (state, pieces) => {
+    const { pieceSetSearchModifier } = state;
+    const { pieceSet, piecePixels } = pieces;
+
+    let edgesResult = {};
+
+    // console.log(pieceSet, piecePixels);
+
+    await Object.keys(pieceSet).forEach( pieceKey => {
+      const piece = pieceSet[pieceKey]
+
+      if (Object.keys(piece.pixels).length < 1) return
+
+      // let firstPixelKey = Object.keys(piece.pixels)[0];
+      // let firstPixel = piece.pixels[firstPixelKey]
+
+      Object.keys(piece.pixels).forEach( pixelKey => {
+        const pixel = piece.pixels[pixelKey]
+        const isEdge = checkCorner(pixel, piece.pixels, state.modifier);
+        if (isEdge) {
+          edgesResult[`${pixel.x}-${pixel.y}`] = pixel;
+        }
+      })
+    })
+
+    return edgesResult;
+  },
+
+	getEdgesOld: async (state, pieces) => {
     const { piecePixels, xColumns, yRows } = pieces;
 
 		let xEdges = {}
 		let yEdges = {}
 		// First, just do a rough comparison to find pixels with a neighbor
-		await Object.keys(xColumns).map( key => {
+		await Object.keys(xColumns).forEach( key => {
 			const xCoords = xColumns[key]
-			xCoords.map( xCoord => {
+			xCoords.forEach( xCoord => {
 				const top = xCoords.filter(neighbor => neighbor.y > xCoord.y && neighbor.y <= xCoord.y + state.modifier * state.edgeThreshold) //xColumns[`${xCoord.x}-${xCoord.y+1}`]
 				const bottom = xCoords.filter(neighbor => neighbor.y < xCoord.y && neighbor.y >= xCoord.y - state.modifier * state.edgeThreshold)
 				const yCoords = yRows[xCoord.y]
 				const left = yCoords.filter(neighbor => neighbor.x < xCoord.x && neighbor.x >= xCoord.x - state.modifier * state.edgeThreshold)
 				const right = yCoords.filter(neighbor => neighbor.x > xCoord.x && neighbor.x <= xCoord.x + state.modifier * state.edgeThreshold)
 
-				if (top.length > 0 && bottom.length === 0 || top.length === 0 && bottom.length > 0) {
+				if ((top.length > 0 && bottom.length === 0) || (top.length === 0 && bottom.length > 0)) {
 					if (!xEdges[key]) xEdges[key] = []
 					xEdges[key].push(xCoord)
 				}
-				if (left.length > 0 && right.length === 0 || left.length === 0 && right.length > 0) {
+				if ((left.length > 0 && right.length === 0) || (left.length === 0 && right.length > 0)) {
 					if (!yEdges[key]) yEdges[key] = []
 					yEdges[key].push(xCoord)
 				}
@@ -96,15 +126,15 @@ export const selectors = {
 		// await this.removeXNoise(xEdges, yEdges)
 		// await this.removeYNoise(xEdges, yEdges)
 
-		Object.keys(xEdges).map( key => {
-			xEdges[key].map( edge => {
+		Object.keys(xEdges).forEach( key => {
+			xEdges[key].forEach( edge => {
 				piecePixels[`${edge.x}-${edge.y}`].xEdge = true
 			})
 		})
 
 		// console.log(piecePixels);
-		Object.keys(yEdges).map( key => {
-			yEdges[key].map( edge => {
+		Object.keys(yEdges).forEach( key => {
+			yEdges[key].forEach( edge => {
 				piecePixels[`${edge.x}-${edge.y}`].yEdge = true
 			})
 		})
@@ -112,19 +142,37 @@ export const selectors = {
 	}
 }
 
-const floodFill = (data, key, startX, startY, width, modifier, pieceSet, piecePixels) => {
-  // let pieceSet = { ...initialPieceSet }
+const checkCorner = (pixel, pixels, modifier) => {
+  const { x, y } = pixel;
+  //console.log(pixel)
 
+  let totalAround = 0;
+
+  totalAround += pixels[`${x+modifier}-${y}`] ? 1 : 0
+  totalAround += pixels[`${x-modifier}-${y}`] ? 1 : 0
+  totalAround += pixels[`${x}-${y+modifier}`] ? 1 : 0
+  totalAround += pixels[`${x}-${y-modifier}`] ? 1 : 0
+  totalAround += pixels[`${x+modifier}-${y+modifier}`] ? 1 : 0
+  totalAround += pixels[`${x+modifier}-${y-modifier}`] ? 1 : 0
+  totalAround += pixels[`${x-modifier}-${y+modifier}`] ? 1 : 0
+  totalAround += pixels[`${x-modifier}-${y-modifier}`] ? 1 : 0
+
+  if (totalAround <= 4) {
+    return true
+  }
+}
+
+const floodFill = (data, key, startX, startY, width, modifier, pieceSet, piecePixels) => {
   // If piecePixels already has a value for this pixel, just return the set
   if (!!piecePixels[key]) {
-    return { pieceSet, piecePixels, pieceFound: false};
+    return { pieceSet, piecePixels, newPieceFound: false};
   }
 
   // If the pixel is not a piece, add it to piecePixels and return
   const pixel = getPixel(data, startX, startY, width)
   if (!pixel.isPiece) {
     piecePixels[key] = pixel;
-    return { pieceSet, piecePixels, pieceFound: false};
+    return { pieceSet, piecePixels, newPieceFound: false};
   }
 
   // Setup the queue to start at the designered points
@@ -154,7 +202,7 @@ const floodFill = (data, key, startX, startY, width, modifier, pieceSet, piecePi
   }
 
   if (!piecePixels[key]) console.log(key, pieceSet)
-  return { pieceSet, piecePixels, pieceFound: true};
+  return { pieceSet, piecePixels, newPieceFound: true};
 }
 
 const nextPixels = (x, y, modifier) => { return [{x: x+modifier, y}, {x: x-modifier, y}, {x, y: y+modifier}, {x, y: y-modifier}] }
@@ -171,9 +219,6 @@ const getPixel = (data, x, y, width) => {
     return { isPiece: true, r, g, b, x, y}
   };
   return { isPiece: false, r, g, b, x, y}
-
-  //const pixel = { r, g, b };
-  //return { r: data[index], g: data[index + 1], b: data[index + 2] }
 }
 
 export const actionCreators = {
