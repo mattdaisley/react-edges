@@ -30,7 +30,7 @@ class Home extends React.Component {
       edges: {},
       showXEdges: true,
       showYEdges: true,
-      selectedImageSource: "puzzlePieces3.jpg",
+      selectedImageSource: "puzzlePieces2.jpg",
       imageSources: [
         "puzzlePieces.jpg",
         "puzzlePieces2.jpg",
