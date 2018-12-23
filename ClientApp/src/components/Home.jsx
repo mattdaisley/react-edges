@@ -2,6 +2,7 @@ import React from "react";
 import { bindActionCreators } from "redux";
 import { connect } from "react-redux";
 import { actionCreators, selectors } from "../store/PieceClassifier/reducer";
+import { PuzzleDetails } from "./PuzzleDetails/PuzzleDetails";
 
 class Home extends React.Component {
   ctxDimensions = {
@@ -14,7 +15,6 @@ class Home extends React.Component {
   scale = 0.25;
   edgeThreshold = 3;
   noiseThreshold = 1;
-
   piecePixels = {
     xColumns: {},
     yRows: {}
@@ -210,20 +210,13 @@ class Home extends React.Component {
   }
 
   render() {
-    const {
-      pieces,
-      edges,
-      showXEdges,
-      showYEdges,
-      imageSources,
-      selectedImageSource
-    } = this.state;
-
+    const { pieces, edges, imageSources, selectedImageSource } = this.state;
     const { pieceSet } = pieces;
 
     if (!!pieces && !!edges) {
       this.draw();
     }
+
     return (
       <div style={{ display: "flex" }}>
         <div>
@@ -246,72 +239,26 @@ class Home extends React.Component {
           {/* <img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" /> */}
           <img
             alt="puzzle piece"
-            ref={image => (this.img = image)}
+            ref={image => {
+              this.img = image;
+            }}
             src={`./${selectedImageSource}`}
             className="hidden"
           />
         </div>
-        <div>
-          <div>
-            <select value={selectedImageSource} onChange={this.updateImage}>
-              {imageSources.map(imageSource => (
-                <option key={imageSource} value={imageSource}>
-                  {imageSource}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <button onClick={this.toggleXEdges}>
-              {showXEdges ? "Hide" : "Show"} X Edges
-            </button>{" "}
-            {!!pieces &&
-              !!pieces.xEdges &&
-              Object.keys(pieces.xEdges).length > 0 &&
-              Object.keys(pieces.xEdges).length}
-          </div>
-          <div>
-            <button onClick={this.toggleYEdges}>
-              {showYEdges ? "Hide" : "Show"} Y Edges
-            </button>{" "}
-            {!!pieces &&
-              !!pieces.yEdges &&
-              Object.keys(pieces.yEdges).length > 0 &&
-              Object.keys(pieces.yEdges).length}
-          </div>
-          <div>
-            {!!pieceSet &&
-              Object.keys(pieceSet).map(pieceKey => {
-                const piece = pieceSet[pieceKey];
-                return (
-                  <div key={pieceKey}>
-                    {pieceKey} - X Min: {piece.minX}, X Max: {piece.maxX}, Y
-                    Min: {piece.minY}, Y Max: {piece.maxY}, Pixel Count:{" "}
-                    {Object.keys(piece.pixels).length}
-                  </div>
-                );
-              })}
-          </div>
-          <div>
-            {!!edges &&
-              Object.keys(edges).map(pieceKey => {
-                const piece = edges[pieceKey];
-                // console.log(piece)
-                return Object.keys(piece.corners).map(cornerKey => {
-                  const edge = piece.corners[cornerKey];
-                  return (
-                    <div key={cornerKey}>
-                      {cornerKey} - X: {edge.x}, Y: {edge.y}
-                    </div>
-                  );
-                });
-              })}
-          </div>
-        </div>
+
+        <PuzzleDetails
+          selectedImageSource={selectedImageSource}
+          imageSources={imageSources}
+          pieceSet={pieceSet}
+          edges={edges}
+          updateImage={this.updateImage}
+        />
       </div>
     );
   }
 }
+
 export default connect(
   state => state.PieceClassifier,
   dispatch => bindActionCreators(actionCreators, dispatch)
