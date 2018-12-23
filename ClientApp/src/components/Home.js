@@ -47,13 +47,8 @@ class Home extends React.Component {
   }
 
   componentDidMount = () => {
-    this.rawcanvas = this.refs.rawcanvas;
     this.rawctx = this.rawcanvas.getContext("2d");
-
-    this.canvas = this.refs.canvas;
     this.ctx = this.canvas.getContext("2d");
-
-    this.img = this.refs.image;
 
     this.img.onload = () => {
       let imageWidth = this.img.width;
@@ -95,7 +90,6 @@ class Home extends React.Component {
       this.ctxDimensions
     );
     let edges = await selectors.getEdges(this.props, pieces);
-    console.log(edges);
     this.setState({ pieces, edges });
   }
 
@@ -233,13 +227,26 @@ class Home extends React.Component {
     return (
       <div style={{ display: "flex" }}>
         <div>
-          <canvas ref="rawcanvas" width={800} height={800} className="hidden" />
-          <canvas ref="canvas" width={800} height={800} />
+          <canvas
+            ref={rawCanvas => {
+              this.rawcanvas = rawCanvas;
+            }}
+            width={800}
+            height={800}
+            className="hidden"
+          />
+          <canvas
+            ref={canvas => {
+              this.canvas = canvas;
+            }}
+            width={800}
+            height={800}
+          />
           {/* <img alt="puzzle piece" ref="image" src="./puzzlePieces.jpg" className="" /> */}
           {/* <img alt="puzzle piece" ref="image" src="./puzzlePieces2.jpg" className="hidden" /> */}
           <img
             alt="puzzle piece"
-            ref="image"
+            ref={image => (this.img = image)}
             src={`./${selectedImageSource}`}
             className="hidden"
           />

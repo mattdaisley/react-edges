@@ -1,8 +1,9 @@
 import React from "react";
+import PropTypes from "prop-types";
 import { Col, Grid, Row } from "react-bootstrap";
 // import NavMenu from './NavMenu';
 
-export default props => (
+const Layout = props => (
   <Grid fluid>
     <Row>
       {/* <Col sm={3}>
@@ -12,3 +13,9 @@ export default props => (
     </Row>
   </Grid>
 );
+
+Layout.propTypes = {
+  children: PropTypes.node.isRequired
+};
+
+export default Layout;

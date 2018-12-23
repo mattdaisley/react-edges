@@ -136,7 +136,6 @@ export const selectors = {
           //let twoPointAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
 
           if (p1p2Distance > 50) {
-            // console.log(`p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${p3.y} -- p1-p2 distance: ${p1p2Distance}`)
             result[pieceKey].edges.push({ length: p1p2Distance, p1, p2 });
           }
         }
@@ -266,18 +265,12 @@ const checkFor90 = async sourceCorners => {
 
           //let twoPointAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
           let threePointAngle = (findAngle(p2, p1, p3) * 180) / Math.PI;
-          console.log(
-            `p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${
-              p3.y
-            } -- p1-p2 distance: ${p1p2Distance} -- p1-p3 distance: ${p1p3Distance} -- p1,p2,p3 angle - ${threePointAngle}`
-          );
 
           if (
             p1p3Distance > 100 &&
             threePointAngle > 80 &&
             threePointAngle < 100
           ) {
-            //console.log(`p1:${p1.x},${p1.y} - p2:${p2.x},${p2.y} - p3:${p3.x},${p3.y} -- p1-p2 distance: ${p1p2Distance} -- p1-p3 distance: ${p1p3Distance} -- p1,p2,p3 angle - ${threePointAngle}`)
             result.push({
               p1p2Distance,
               p1p3Distance,
@@ -316,7 +309,7 @@ const floodFill = (
   piecePixels
 ) => {
   // If piecePixels already has a value for this pixel, just return the set
-  if (!!piecePixels[key]) {
+  if (piecePixels[key]) {
     return { pieceSet, piecePixels, newPieceFound: false };
   }
 
