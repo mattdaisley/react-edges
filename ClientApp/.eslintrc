@@ -1,0 +1,22 @@
+{
+    "parser": "babel-eslint",
+    "env": {
+        "browser": true,
+        "es6": true
+    },
+    "settings": {
+        "ecmascript": 6,
+        "jsx": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2018,
+        "ecmaFeatures": {
+            "experimentalObjectRestSpread": true,
+            "modules": true,
+            "jsx": true
+        }
+    },
+    "plugins": [
+        "react"
+    ]
+}

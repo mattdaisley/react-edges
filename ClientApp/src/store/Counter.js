@@ -1,5 +1,5 @@
-﻿const incrementCountType = 'INCREMENT_COUNT';
-const decrementCountType = 'DECREMENT_COUNT';
+﻿const incrementCountType = "INCREMENT_COUNT";
+const decrementCountType = "DECREMENT_COUNT";
 const initialState = { count: 0 };
 
 export const actionCreators = {

@@ -1,7 +1,7 @@
-import React from 'react';
-import { bindActionCreators } from 'redux';
-import { connect } from 'react-redux';
-import { actionCreators } from '../store/Counter';
+import React from "react";
+import { bindActionCreators } from "redux";
+import { connect } from "react-redux";
+import { actionCreators } from "../store/Counter";
 
 const Counter = props => (
   <div>
@@ -9,7 +9,9 @@ const Counter = props => (
 
     <p>This is a simple example of a React component.</p>
 
-    <p>Current count: <strong>{props.count}</strong></p>
+    <p>
+      Current count: <strong>{props.count}</strong>
+    </p>
 
     <button onClick={props.increment}>Increment</button>
   </div>
