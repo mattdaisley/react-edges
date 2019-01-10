@@ -108,14 +108,14 @@ export const selectors = {
 
       await Object.keys(piece.pixels).forEach(pixelKey => {
         const pixel = piece.pixels[pixelKey];
-        const isEdge = checkCorner(
+        const isCorner = checkCorner(
           pixel,
           piece.pixels,
           modifier,
           apperature,
           cornerThreshold
         );
-        if (isEdge) {
+        if (isCorner) {
           result[pieceKey].corners[`${pixel.x}-${pixel.y}`] = pixel;
         }
       });

@@ -4,7 +4,7 @@ import PropTypes from "prop-types";
 export class PuzzleDetails extends Component {
   static propTypes = {
     selectedImageSource: PropTypes.string,
-    imageSources: PropTypes.arrayOf.string,
+    imageSources: PropTypes.arrayOf(PropTypes.string),
     pieceSet: PropTypes.any,
     edges: PropTypes.any,
     updateImage: PropTypes.func
@@ -65,15 +65,21 @@ export class PuzzleDetails extends Component {
           {!!edges &&
             Object.keys(edges).map(pieceKey => {
               const piece = edges[pieceKey];
-              // console.log(piece)
-              return Object.keys(piece.corners).map(cornerKey => {
-                const edge = piece.corners[cornerKey];
+              // eslint-disable-next-line no-console
+              console.log(piece);
+              return piece.angles.map((angle, index) => {
                 return (
-                  <div key={cornerKey}>
-                    {cornerKey} - X: {edge.x}, Y: {edge.y}
-                  </div>
+                  <div key={index}>p1p2Distance: {angle.p1p2Distance}</div>
                 );
               });
+              // return Object.keys(piece.corners).map(cornerKey => {
+              //   const edge = piece.corners[cornerKey];
+              //   return (
+              //     <div key={cornerKey}>
+              //       {cornerKey} - X: {edge.x}, Y: {edge.y}
+              //     </div>
+              //   );
+              // });
             })}
         </div>
       </div>
